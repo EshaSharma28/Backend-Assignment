@@ -37,4 +37,8 @@ def create_app(config_name=None):
             PerformanceRecord,
         )
 
+    # Register blueprints
+    from app.auth import auth_bp
+    app.register_blueprint(auth_bp)
+
     return app
