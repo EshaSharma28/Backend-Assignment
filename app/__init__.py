@@ -39,6 +39,12 @@ def create_app(config_name=None):
 
     # Register blueprints
     from app.auth import auth_bp
+    from app.hrms import hrms_bp
+    from app.crm import crm_bp
+    from app.performance import performance_bp
     app.register_blueprint(auth_bp)
+    app.register_blueprint(hrms_bp)
+    app.register_blueprint(crm_bp)
+    app.register_blueprint(performance_bp)
 
     return app
