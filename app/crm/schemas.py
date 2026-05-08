@@ -32,6 +32,6 @@ class InteractionSchema(Schema):
     type = fields.String(required=True, validate=validate.OneOf(['Call', 'Email', 'Meeting']))
     subject = fields.String(validate=validate.Length(max=255))
     notes = fields.String()
-    interaction_date = fields.DateTime(required=True)
+    interaction_date = fields.DateTime()
     duration_minutes = fields.Integer()
     created_at = fields.DateTime(dump_only=True)

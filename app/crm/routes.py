@@ -53,6 +53,28 @@ def create_lead():
     
     return jsonify(lead_schema.dump(new_lead)), 201
 
+@crm_bp.route('/leads/<int:id>', methods=['PATCH'])
+@require_auth
+@require_permission('leads', 'can_write')
+def update_lead(id):
+    lead = db.session.get(Lead, id)
+    if not lead:
+        return jsonify({'message': 'Lead not found'}), 404
+    
+    data = request.get_json()
+    # Partial validation: only validate fields present in the request
+    errors = lead_schema.validate(data, partial=True)
+    if errors:
+        return jsonify(errors), 400
+    
+    # Update only the fields provided in the body
+    for key, value in data.items():
+        if hasattr(lead, key):
+            setattr(lead, key, value)
+    
+    db.session.commit()
+    return jsonify(lead_schema.dump(lead)), 200
+
 @crm_bp.route('/leads/<int:id>/interactions', methods=['GET'])
 @require_auth
 @require_permission('leads', 'can_read')

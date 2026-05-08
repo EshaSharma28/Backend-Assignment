@@ -367,6 +367,41 @@
 					"response": []
 				},
 				{
+					"name": "Update Lead",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"contact_phone\": \"+1 555-1234\",\n    \"contact_email\": \"contact@google.com\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/crm/leads/1",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"crm",
+								"leads",
+								"1"
+							]
+						}
+					},
+					"response": []
+				},
+				{
 					"name": "Log Interaction",
 					"request": {
 						"method": "POST",
