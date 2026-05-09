@@ -1,6 +1,6 @@
 # HireHub: Integrated CRM & HRMS Backend
 
-HireHub is a production-hardened Flask backend that bridges Customer Relationship Management (CRM) and Human Resource Management (HRMS) into a unified, secure ecosystem.
+HireHub is a production-oriented Flask backend that bridges Customer Relationship Management (CRM) and Human Resource Management (HRMS) into a unified, secure ecosystem.
 
 ---
 
@@ -21,7 +21,7 @@ DATABASE_URL=postgresql://user:password@localhost:5432/hirehub_db
 ```
 
 ### Deployment via Docker
-The system is pre-configured with a Gunicorn server and security-hardened container settings.
+The system is pre-configured with a Gunicorn server and a non-root container user.
 ```bash
 # Start the entire stack (PostgreSQL + App)
 docker-compose up --build
@@ -92,7 +92,7 @@ The database links HR data (Employees) directly to Sales outcomes (Leads) with s
 *   **Performance Caching**: Performance scores are calculated and stored in a "materialized" `performance_records` table. This ensures that "Read" operations (dashboards) are nearly instant, at the cost of a small amount of extra logic during updates.
 *   **Production WSGI**: In Docker, the app runs via Gunicorn with multiple workers and threads for concurrent request handling.
 *   **Non-Root Execution**: The Docker container runs as a dedicated `hirehub` user, adhering to the principle of least privilege.
-*   **Secrets Management**: Safe fallback mechanisms have been removed to ensure the application "fails fast" if critical security keys are missing in production.
+*   **Secrets Management**: Production startup fails fast if `SECRET_KEY` is missing, while development and testing keep explicit local defaults for convenience.
 
 ---
 
