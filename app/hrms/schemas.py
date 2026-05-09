@@ -10,7 +10,7 @@ class EmployeeSchema(Schema):
     department = fields.String(validate=validate.Length(max=100))
     designation = fields.String(validate=validate.Length(max=100))
     date_of_joining = fields.Date(required=True)
-    is_sales_agent = fields.Boolean(default=False)
+    is_sales_agent = fields.Boolean(load_default=False, dump_default=False)
     manager_id = fields.Integer(allow_none=True)
     created_at = fields.DateTime(dump_only=True)
     updated_at = fields.DateTime(dump_only=True)
@@ -26,7 +26,7 @@ class TeamMemberSchema(Schema):
     id = fields.Integer(dump_only=True)
     team_id = fields.Integer(required=True)
     employee_id = fields.Integer(required=True)
-    is_lead = fields.Boolean(default=False)
+    is_lead = fields.Boolean(load_default=False, dump_default=False)
     joined_at = fields.DateTime(dump_only=True)
 
 class DailyAttendanceSchema(Schema):
@@ -59,5 +59,5 @@ class LeaveBalanceSchema(Schema):
     leave_type = fields.String(required=True, validate=validate.OneOf(['Casual', 'Sick', 'Earned', 'Unpaid']))
     year = fields.Integer(required=True)
     total_allocated = fields.Integer(required=True)
-    total_used = fields.Integer(default=0)
+    total_used = fields.Integer(load_default=0, dump_default=0)
     remaining = fields.Integer(dump_only=True)

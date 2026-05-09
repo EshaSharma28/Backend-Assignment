@@ -18,8 +18,30 @@ history_schema = LeadStatusHistorySchema(many=True)
 @require_auth
 @require_permission('leads', 'can_read')
 def get_leads():
-    leads = Lead.query.all()
-    return jsonify(leads_schema.dump(leads)), 200
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 10, type=int)
+
+    # Scoping: Sales agents only see leads assigned to them
+    query = Lead.query
+    if g.current_user.role_id == 3: # Sales
+        if not g.current_user.employee:
+            return jsonify({
+                'leads': [],
+                'total': 0,
+                'pages': 0,
+                'current_page': page
+            }), 200
+        query = query.filter_by(assigned_agent_id=g.current_user.employee.id)
+    
+    # Apply pagination
+    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+    
+    return jsonify({
+        'leads': leads_schema.dump(pagination.items),
+        'total': pagination.total,
+        'pages': pagination.pages,
+        'current_page': pagination.page
+    }), 200
 
 @crm_bp.route('/leads/<int:id>', methods=['GET'])
 @require_auth
@@ -28,6 +50,12 @@ def get_lead(id):
     lead = db.session.get(Lead, id)
     if not lead:
         return jsonify({'message': 'Lead not found'}), 404
+    
+    # Scoping check for Sales
+    if g.current_user.role_id == 3:
+        if not g.current_user.employee or lead.assigned_agent_id != g.current_user.employee.id:
+            return jsonify({'message': 'Access denied: Lead not assigned to you'}), 403
+            
     return jsonify(lead_schema.dump(lead)), 200
 
 @crm_bp.route('/leads', methods=['POST'])
@@ -39,6 +67,12 @@ def create_lead():
     if errors:
         return jsonify(errors), 400
     
+    assigned_agent_id = data.get('assigned_agent_id')
+    if assigned_agent_id:
+        agent = db.session.get(Employee, assigned_agent_id)
+        if not agent or not agent.is_sales_agent:
+            return jsonify({'message': 'Invalid assignment: Employee is not a Sales Agent'}), 400
+
     new_lead = Lead(
         company_name=data['company_name'],
         contact_name=data.get('contact_name'),
@@ -46,7 +80,7 @@ def create_lead():
         contact_phone=data.get('contact_phone'),
         source=data.get('source'),
         status=data.get('status', 'Lead'),
-        assigned_agent_id=data.get('assigned_agent_id'),
+        assigned_agent_id=assigned_agent_id,
         estimated_value=data.get('estimated_value', 0.00)
     )
     
@@ -77,6 +111,13 @@ def update_lead(id):
     
     was_unassigned = lead.assigned_agent_id is None
     
+    # Validate assignment if agent is being updated
+    new_agent_id = data.get('assigned_agent_id')
+    if new_agent_id and new_agent_id != lead.assigned_agent_id:
+        agent = db.session.get(Employee, new_agent_id)
+        if not agent or not agent.is_sales_agent:
+            return jsonify({'message': 'Invalid assignment: Employee is not a Sales Agent'}), 400
+
     # Update only the fields provided in the body
     for key, value in data.items():
         if hasattr(lead, key):

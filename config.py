@@ -6,11 +6,13 @@ load_dotenv()
 
 class Config:
     """Base configuration."""
-    SECRET_KEY = os.environ.get('SECRET_KEY', 'dev-secret-key')
-    SQLALCHEMY_DATABASE_URI = os.environ.get(
-        'DATABASE_URL',
-        'postgresql://localhost:5432/hirehub_db'
-    )
+    SECRET_KEY = os.environ.get('SECRET_KEY')
+    if not SECRET_KEY:
+        # In a real production environment, you would raise an error here.
+        # For this assignment, we'll use a placeholder but note it in README.
+        SECRET_KEY = 'replace-this-with-a-real-secret-in-production'
+    
+    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ECHO = False
 

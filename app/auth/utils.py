@@ -13,9 +13,11 @@ def check_password(password: str, hashed_password: str) -> bool:
     """Verify a plaintext password against a bcrypt hash."""
     return bcrypt.checkpw(password.encode('utf-8'), hashed_password.encode('utf-8'))
 
+from flask import current_app
+
 def generate_jwt(user_id, role_id):
     """Generate a JWT token for the user."""
-    secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key')
+    secret_key = current_app.config['SECRET_KEY']
     payload = {
         'sub': str(user_id),
         'role_id': role_id,
@@ -27,7 +29,7 @@ def generate_jwt(user_id, role_id):
 
 def decode_jwt(token: str):
     """Decode a JWT token."""
-    secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key')
+    secret_key = current_app.config['SECRET_KEY']
     try:
         payload = jwt.decode(token, secret_key, algorithms=['HS256'])
         return payload

@@ -18,13 +18,17 @@ RUN apt-get update && apt-get install -y \
 
 # Install dependencies
 COPY requirements.txt /app/
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt gunicorn
 
 # Copy project
 COPY . /app/
 
+# Create a non-root user and switch to it for security
+RUN useradd -m hirehub
+USER hirehub
+
 # Expose port
 EXPOSE 5000
 
-# Start command
-CMD ["flask", "run", "--host=0.0.0.0"]
+# Use Gunicorn as the production WSGI server
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "run:app", "--workers", "4", "--threads", "2"]

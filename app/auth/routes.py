@@ -21,12 +21,9 @@ def register():
 
     email = data['email']
     password = data['password']
-    role_id = data['role_id']
-
-    # Check if role exists
-    role = db.session.get(Role, role_id)
-    if not role:
-        return jsonify({'message': 'Invalid role_id'}), 400
+    # Security: Do not allow role_id from request. Default to 'Sales' role (ID 3)
+    # Only an Admin should be able to promote a user role via a separate endpoint.
+    sales_role_id = 3 
 
     # Check if user exists
     if User.query.filter_by(email=email).first():
@@ -36,7 +33,7 @@ def register():
     new_user = User(
         email=email,
         password_hash=hashed_password,
-        role_id=role_id
+        role_id=sales_role_id
     )
     
     db.session.add(new_user)
