@@ -86,12 +86,13 @@ The database links HR data (Employees) directly to Sales outcomes (Leads) with s
 
 ---
 
-## Security & Production Notes
+## Key Decisions & Trade-offs
 
+*   **Async Processing (Threads vs. Celery)**: I chose Python's native `threading` library for background tasks (like notifications) instead of a full Celery/Redis stack. This keeps the project lightweight and "plug-and-play" for reviewers while still achieving the non-blocking objective.
+*   **Performance Caching**: Performance scores are calculated and stored in a "materialized" `performance_records` table. This ensures that "Read" operations (dashboards) are nearly instant, at the cost of a small amount of extra logic during updates.
 *   **Production WSGI**: In Docker, the app runs via Gunicorn with multiple workers and threads for concurrent request handling.
-*   **Non-Root Execution**: The Docker container runs as a dedicated `hirehub` user for enhanced security.
-*   **RBAC**: A custom Scope + Permission matrix (e.g., `leave:can_write`) handles access control.
-*   **Secrets**: Safe fallback mechanisms have been removed; the application will fail if `SECRET_KEY` is not provided.
+*   **Non-Root Execution**: The Docker container runs as a dedicated `hirehub` user, adhering to the principle of least privilege.
+*   **Secrets Management**: Safe fallback mechanisms have been removed to ensure the application "fails fast" if critical security keys are missing in production.
 
 ---
 
