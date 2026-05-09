@@ -5,6 +5,7 @@ Application factory pattern.
 
 import os
 from flask import Flask
+from sqlalchemy.exc import DataError, IntegrityError, SQLAlchemyError, StatementError
 from app.extensions import db, migrate
 from config import config_by_name
 
@@ -16,6 +17,8 @@ def create_app(config_name=None):
 
     app = Flask(__name__)
     app.config.from_object(config_by_name[config_name])
+    if config_name == 'production' and not os.environ.get('SECRET_KEY'):
+        raise RuntimeError('SECRET_KEY is required in production')
 
     # Initialize extensions
     db.init_app(app)
@@ -40,5 +43,28 @@ def create_app(config_name=None):
     app.register_blueprint(hrms_bp)
     app.register_blueprint(crm_bp)
     app.register_blueprint(performance_bp)
+
+    @app.errorhandler(IntegrityError)
+    def handle_integrity_error(error):
+        db.session.rollback()
+        return {
+            'message': 'Database integrity error',
+            'detail': 'A unique, foreign key, or check constraint was violated',
+        }, 409
+
+    @app.errorhandler(DataError)
+    def handle_data_error(error):
+        db.session.rollback()
+        return {'message': 'Invalid database input'}, 400
+
+    @app.errorhandler(StatementError)
+    def handle_bad_database_input(error):
+        db.session.rollback()
+        return {'message': 'Invalid database input'}, 400
+
+    @app.errorhandler(SQLAlchemyError)
+    def handle_database_error(error):
+        db.session.rollback()
+        return {'message': 'Database error'}, 500
 
     return app

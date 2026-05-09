@@ -1,4 +1,5 @@
 import pytest
+from datetime import date
 from app import create_app
 from app.extensions import db
 
@@ -29,25 +30,36 @@ def cleanup(app):
 def client(app):
     return app.test_client()
 
+
+@pytest.fixture
+def seed_data(app):
+    """RBAC data is seeded once in the app fixture."""
+    return None
+
+
 @pytest.fixture
 def admin_token(client, app):
-    # Register and login admin
     with app.app_context():
-        resp = client.post('/api/auth/register', json={
-            'email': 'admin@hirehub.com',
-            'password': 'adminpassword',
-            'role_id': 1
-        })
-        user_id = resp.json['user']['id']
-        
-        # Create employee profile for admin
+        from app.auth.utils import hash_password
+        from app.models.auth import Role, User
         from app.models.hrms import Employee
+
+        admin_role = Role.query.filter_by(name='Admin').first()
+        admin_user = User(
+            email='admin@hirehub.com',
+            password_hash=hash_password('adminpassword'),
+            role_id=admin_role.id,
+        )
+        db.session.add(admin_user)
+        db.session.flush()
+        
         admin_emp = Employee(
-            user_id=user_id,
+            user_id=admin_user.id,
             first_name="Admin",
             last_name="User",
-            date_of_joining="2024-01-01",
-            department="Management"
+            date_of_joining=date(2024, 1, 1),
+            department="Management",
+            is_sales_agent=True,
         )
         db.session.add(admin_emp)
         db.session.commit()

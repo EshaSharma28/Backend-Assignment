@@ -8,9 +8,7 @@ class Config:
     """Base configuration."""
     SECRET_KEY = os.environ.get('SECRET_KEY')
     if not SECRET_KEY:
-        # In a real production environment, you would raise an error here.
-        # For this assignment, we'll use a placeholder but note it in README.
-        SECRET_KEY = 'replace-this-with-a-real-secret-in-production'
+        SECRET_KEY = 'dev-only-secret-key'
     
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')
     SQLALCHEMY_TRACK_MODIFICATIONS = False
@@ -32,6 +30,7 @@ class TestingConfig(Config):
     """Testing configuration."""
     DEBUG = True
     TESTING = True
+    SECRET_KEY = os.environ.get('SECRET_KEY', 'test-secret-key')
     SQLALCHEMY_DATABASE_URI = os.environ.get(
         'TEST_DATABASE_URL',
         'postgresql://localhost:5432/hirehub_test_db'

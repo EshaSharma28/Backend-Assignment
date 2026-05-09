@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, time, timezone
 from flask import request, jsonify, g
 from sqlalchemy import func
 from app.performance import performance_bp
@@ -24,6 +24,11 @@ def calculate_performance(employee_id):
     # We need to extract the dates for our queries
     period_start = datetime.strptime(data['period_start'], '%Y-%m-%d').date()
     period_end = datetime.strptime(data['period_end'], '%Y-%m-%d').date()
+    if period_end < period_start:
+        return jsonify({'message': 'period_end cannot be before period_start'}), 400
+
+    period_start_at = datetime.combine(period_start, time.min, tzinfo=timezone.utc)
+    period_end_at = datetime.combine(period_end, time.max, tzinfo=timezone.utc)
     
     employee = db.session.get(Employee, employee_id)
     if not employee:
@@ -32,15 +37,15 @@ def calculate_performance(employee_id):
     # 1. CRM Metrics
     total_leads = Lead.query.filter(
         Lead.assigned_agent_id == employee_id,
-        Lead.created_at >= period_start,
-        Lead.created_at <= period_end
+        Lead.created_at >= period_start_at,
+        Lead.created_at <= period_end_at
     ).count()
     
     converted_leads = Lead.query.filter(
         Lead.assigned_agent_id == employee_id,
         Lead.status == 'Customer',
-        Lead.converted_at >= period_start,
-        Lead.converted_at <= period_end
+        Lead.converted_at >= period_start_at,
+        Lead.converted_at <= period_end_at
     ).count()
     
     conversion_rate = (converted_leads / total_leads * 100) if total_leads > 0 else 0
@@ -48,15 +53,15 @@ def calculate_performance(employee_id):
     total_deal_value = db.session.query(func.sum(Lead.actual_value)).filter(
         Lead.assigned_agent_id == employee_id,
         Lead.status == 'Customer',
-        Lead.converted_at >= period_start,
-        Lead.converted_at <= period_end
+        Lead.converted_at >= period_start_at,
+        Lead.converted_at <= period_end_at
     ).scalar() or 0
 
     # 2. Interaction Metrics
     total_interactions = Interaction.query.filter(
         Interaction.employee_id == employee_id,
-        Interaction.interaction_date >= period_start,
-        Interaction.interaction_date <= period_end
+        Interaction.interaction_date >= period_start_at,
+        Interaction.interaction_date <= period_end_at
     ).count()
 
     # 3. HRMS Metrics (Attendance)
@@ -72,10 +77,13 @@ def calculate_performance(employee_id):
     total_days = (period_end - period_start).days + 1
     attendance_score = (days_present / total_days * 100) if total_days > 0 else 0
 
-    # 4. Composite Score (Example Weights: 40% Conversion, 30% Value, 20% Interactions, 10% Attendance)
-    # This is a placeholder for actual business logic
+    interaction_frequency = total_interactions / total_days if total_days > 0 else 0
+    deal_value_score = min(float(total_deal_value) / 100000 * 100, 100)
+
+    # 4. Composite Score (40% conversion, 30% value, 20% interactions, 10% attendance)
     overall_score = (
         (conversion_rate * 0.4) + 
+        (deal_value_score * 0.3) +
         (min(attendance_score, 100) * 0.1) +
         (min(total_interactions * 5, 100) * 0.2) # Assuming 20 interactions is a "perfect" 100 score
     )
@@ -100,6 +108,7 @@ def calculate_performance(employee_id):
     record.lead_conversion_rate = conversion_rate
     record.total_deal_value = total_deal_value
     record.total_interactions = total_interactions
+    record.interaction_frequency = interaction_frequency
     record.attendance_score = attendance_score
     record.overall_score = overall_score
     record.computed_at = datetime.now(timezone.utc)

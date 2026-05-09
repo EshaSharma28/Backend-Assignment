@@ -14,6 +14,22 @@ interaction_schema = InteractionSchema()
 interactions_schema = InteractionSchema(many=True)
 history_schema = LeadStatusHistorySchema(many=True)
 
+
+def is_sales_user(user):
+    return user.role and user.role.name == 'Sales'
+
+
+def sales_lead_access_error(lead):
+    if not is_sales_user(g.current_user):
+        return None
+
+    current_employee = g.current_user.employee
+    if not current_employee or lead.assigned_agent_id != current_employee.id:
+        return jsonify({'message': 'Access denied: Lead not assigned to you'}), 403
+
+    return None
+
+
 @crm_bp.route('/leads', methods=['GET'])
 @require_auth
 @require_permission('leads', 'can_read')
@@ -23,7 +39,7 @@ def get_leads():
 
     # Scoping: Sales agents only see leads assigned to them
     query = Lead.query
-    if g.current_user.role_id == 3: # Sales
+    if is_sales_user(g.current_user):
         if not g.current_user.employee:
             return jsonify({
                 'leads': [],
@@ -52,9 +68,9 @@ def get_lead(id):
         return jsonify({'message': 'Lead not found'}), 404
     
     # Scoping check for Sales
-    if g.current_user.role_id == 3:
-        if not g.current_user.employee or lead.assigned_agent_id != g.current_user.employee.id:
-            return jsonify({'message': 'Access denied: Lead not assigned to you'}), 403
+    access_error = sales_lead_access_error(lead)
+    if access_error:
+        return access_error
             
     return jsonify(lead_schema.dump(lead)), 200
 
@@ -102,6 +118,10 @@ def update_lead(id):
     lead = db.session.get(Lead, id)
     if not lead:
         return jsonify({'message': 'Lead not found'}), 404
+
+    access_error = sales_lead_access_error(lead)
+    if access_error:
+        return access_error
     
     data = request.get_json()
     # Partial validation: only validate fields present in the request
@@ -140,6 +160,10 @@ def get_lead_interactions(id):
     lead = db.session.get(Lead, id)
     if not lead:
         return jsonify({'message': 'Lead not found'}), 404
+
+    access_error = sales_lead_access_error(lead)
+    if access_error:
+        return access_error
     
     interactions = Interaction.query.filter_by(lead_id=id).all()
     return jsonify(interactions_schema.dump(interactions)), 200
@@ -151,6 +175,10 @@ def log_interaction(id):
     lead = db.session.get(Lead, id)
     if not lead:
         return jsonify({'message': 'Lead not found'}), 404
+
+    access_error = sales_lead_access_error(lead)
+    if access_error:
+        return access_error
     
     data = request.get_json()
     errors = interaction_schema.validate(data)
@@ -187,6 +215,10 @@ def get_lead_history(id):
     lead = db.session.get(Lead, id)
     if not lead:
         return jsonify({'message': 'Lead not found'}), 404
+
+    access_error = sales_lead_access_error(lead)
+    if access_error:
+        return access_error
     
     history = LeadStatusHistory.query.filter_by(lead_id=id).order_by(LeadStatusHistory.changed_at.desc()).all()
     return jsonify(history_schema.dump(history)), 200
@@ -198,6 +230,10 @@ def update_lead_status(id):
     lead = db.session.get(Lead, id)
     if not lead:
         return jsonify({'message': 'Lead not found'}), 404
+
+    access_error = sales_lead_access_error(lead)
+    if access_error:
+        return access_error
     
     data = request.get_json()
     new_status = data.get('status')
