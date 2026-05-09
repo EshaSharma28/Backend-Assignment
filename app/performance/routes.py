@@ -17,6 +17,11 @@ performances_schema = PerformanceRecordSchema(many=True)
 @require_permission('performance', 'can_write')
 def calculate_performance(employee_id):
     data = request.get_json()
+    errors = performance_schema.validate(data, partial=True)
+    if errors:
+        return jsonify(errors), 400
+    
+    # We need to extract the dates for our queries
     period_start = datetime.strptime(data['period_start'], '%Y-%m-%d').date()
     period_end = datetime.strptime(data['period_end'], '%Y-%m-%d').date()
     

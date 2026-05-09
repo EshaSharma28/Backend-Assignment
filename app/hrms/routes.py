@@ -2,10 +2,14 @@ from datetime import datetime, date, timezone
 from flask import request, jsonify, g
 from app.hrms import hrms_bp
 from app.extensions import db
-from app.models.hrms import Employee, DailyAttendance, LeaveRequest, LeaveBalance
+from app.models.hrms import (
+    Employee, DailyAttendance, LeaveRequest, 
+    LeaveBalance, Team, TeamMember
+)
 from app.hrms.schemas import (
     EmployeeSchema, DailyAttendanceSchema, 
-    LeaveRequestSchema, LeaveBalanceSchema
+    LeaveRequestSchema, LeaveBalanceSchema,
+    TeamSchema, TeamMemberSchema
 )
 from app.auth.decorators import require_auth, require_permission
 
@@ -15,6 +19,9 @@ attendance_schema = DailyAttendanceSchema()
 attendances_schema = DailyAttendanceSchema(many=True)
 leave_request_schema = LeaveRequestSchema()
 leave_requests_schema = LeaveRequestSchema(many=True)
+team_schema = TeamSchema()
+teams_schema = TeamSchema(many=True)
+team_member_schema = TeamMemberSchema()
 
 @hrms_bp.route('/employees', methods=['GET'])
 @require_auth
@@ -57,6 +64,61 @@ def create_employee():
     db.session.commit()
     
     return jsonify(employee_schema.dump(new_employee)), 201
+
+@hrms_bp.route('/teams', methods=['GET'])
+@require_auth
+@require_permission('attendance', 'can_read')
+def get_teams():
+    teams = Team.query.all()
+    return jsonify(teams_schema.dump(teams)), 200
+
+@hrms_bp.route('/teams', methods=['POST'])
+@require_auth
+@require_permission('all', 'can_write')
+def create_team():
+    data = request.get_json()
+    errors = team_schema.validate(data)
+    if errors:
+        return jsonify(errors), 400
+    
+    new_team = Team(
+        name=data['name'],
+        description=data.get('description')
+    )
+    
+    db.session.add(new_team)
+    db.session.commit()
+    
+    return jsonify(team_schema.dump(new_team)), 201
+
+@hrms_bp.route('/teams/<int:team_id>/members', methods=['POST'])
+@require_auth
+@require_permission('all', 'can_write')
+def add_team_member(team_id):
+    team = db.session.get(Team, team_id)
+    if not team:
+        return jsonify({'message': 'Team not found'}), 404
+    
+    data = request.get_json()
+    employee_id = data.get('employee_id')
+    if not employee_id:
+        return jsonify({'message': 'employee_id is required'}), 400
+    
+    # Check if already a member
+    existing = TeamMember.query.filter_by(team_id=team_id, employee_id=employee_id).first()
+    if existing:
+        return jsonify({'message': 'Employee is already a member of this team'}), 400
+    
+    member = TeamMember(
+        team_id=team_id,
+        employee_id=employee_id,
+        is_lead=data.get('is_lead', False)
+    )
+    
+    db.session.add(member)
+    db.session.commit()
+    
+    return jsonify(team_member_schema.dump(member)), 201
 
 @hrms_bp.route('/attendance/clock-in', methods=['POST'])
 @require_auth
