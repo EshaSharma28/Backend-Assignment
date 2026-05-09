@@ -10,9 +10,7 @@ from sqlalchemy.dialects.postgresql import UUID
 
 from app.extensions import db
 
-# ──────────────────────────────────────────────
-# PostgreSQL ENUMs
-# ──────────────────────────────────────────────
+# ENUM definitions for consistency across HRMS
 LeaveType = PgEnum(
     'Casual', 'Sick', 'Earned', 'Unpaid',
     name='leave_type',
@@ -25,19 +23,10 @@ LeaveStatus = PgEnum(
     create_type=True,
 )
 
-
-# ──────────────────────────────────────────────
-# employees
-# ──────────────────────────────────────────────
 class Employee(db.Model):
     """
-    Core HRMS profile table.
-
-    Design decisions:
-    - Linked 1:1 to users via user_id (auth is separate from HR data).
-    - is_sales_agent flag bridges HRMS ↔ CRM: only employees with this flag
-      can be assigned leads in the CRM module.
-    - manager_id is a self-referential FK for reporting hierarchies.
+    Core HRMS profile. 
+    Linked 1:1 to users (auth) and supports self-referential management hierarchy.
     """
     __tablename__ = 'employees'
 
@@ -96,14 +85,8 @@ class Employee(db.Model):
         return f'<Employee {self.full_name}>'
 
 
-# ──────────────────────────────────────────────
-# teams
-# ──────────────────────────────────────────────
 class Team(db.Model):
-    """
-    Organizational unit (e.g. "North Sales", "HR Operations").
-    Employees are linked via the team_members junction table (M:N).
-    """
+    # Organizational unit (e.g. "North Sales", "HR Operations").
     __tablename__ = 'teams'
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
@@ -120,14 +103,8 @@ class Team(db.Model):
         return f'<Team {self.name}>'
 
 
-# ──────────────────────────────────────────────
-# team_members  (junction table)
-# ──────────────────────────────────────────────
 class TeamMember(db.Model):
-    """
-    Many-to-many junction: an employee can belong to multiple teams.
-    is_lead flags team managers for reporting.
-    """
+    # Junction table for M:N relationship between employees and teams.
     __tablename__ = 'team_members'
     __table_args__ = (
         db.UniqueConstraint('team_id', 'employee_id',
@@ -151,16 +128,8 @@ class TeamMember(db.Model):
         return f'<TeamMember team={self.team_id} emp={self.employee_id}>'
 
 
-# ──────────────────────────────────────────────
-# daily_attendance
-# ──────────────────────────────────────────────
 class DailyAttendance(db.Model):
-    """
-    Clock-in / clock-out tracking.
-
-    RBAC: Only HR and Admin roles can read/write this table.
-    Sales agents have no access — enforced via role_permissions(scope='attendance').
-    """
+    # Track daily clock-ins and clock-outs.
     __tablename__ = 'daily_attendance'
     __table_args__ = (
         db.UniqueConstraint('employee_id', 'date',
@@ -193,18 +162,8 @@ class DailyAttendance(db.Model):
         return f'<Attendance emp={self.employee_id} date={self.date}>'
 
 
-# ──────────────────────────────────────────────
-# leave_requests
-# ──────────────────────────────────────────────
 class LeaveRequest(db.Model):
-    """
-    Leave request with full approval workflow.
-
-    Approval tracking: reviewed_by + reviewed_at + remarks = complete audit trail.
-    State transitions enforced by leave_status ENUM:
-        Pending → Approved | Rejected
-        Pending → Cancelled  (by the employee themselves)
-    """
+    # Manage employee leave applications and status transitions.
     __tablename__ = 'leave_requests'
     __table_args__ = (
         CheckConstraint('end_date >= start_date',
@@ -241,14 +200,8 @@ class LeaveRequest(db.Model):
         return f'<LeaveRequest emp={self.employee_id} {self.status}>'
 
 
-# ──────────────────────────────────────────────
-# leave_balances
-# ──────────────────────────────────────────────
 class LeaveBalance(db.Model):
-    """
-    Tracks annual leave quota per employee per leave type.
-    total_used is decremented on approval; remaining is derived.
-    """
+    # Track annual leave quotas and remaining balances.
     __tablename__ = 'leave_balances'
     __table_args__ = (
         db.UniqueConstraint('employee_id', 'leave_type', 'year',

@@ -1,9 +1,3 @@
-"""
-Module 3 — CRM Models
-Tables: leads, lead_status_history, interactions
-Note removed from interaction_type ENUM — notes are a field, not a type.
-"""
-
 from datetime import datetime, timezone
 from sqlalchemy import Enum as PgEnum
 from app.extensions import db

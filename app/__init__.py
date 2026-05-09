@@ -10,13 +10,7 @@ from config import config_by_name
 
 
 def create_app(config_name=None):
-    """
-    Application factory.
-
-    Args:
-        config_name: One of 'development', 'production', or 'default'.
-                     Falls back to FLASK_ENV env var, then 'default'.
-    """
+    # App factory using the config_by_name map from config.py
     if config_name is None:
         config_name = os.environ.get('FLASK_ENV', 'default')
 
