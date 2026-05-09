@@ -14,6 +14,21 @@ def test_register_user(client, seed_data):
     assert response.status_code == 201
     assert response.json['message'] == 'User registered successfully'
     assert response.json['user']['email'] == 'test@example.com'
+    sales_role = Role.query.filter_by(name='Sales').first()
+    assert response.json['user']['role_id'] == sales_role.id
+
+
+def test_duplicate_email_rejected(client, seed_data):
+    payload = {
+        'email': 'duplicate@example.com',
+        'password': 'password123'
+    }
+
+    first = client.post('/api/auth/register', json=payload)
+    second = client.post('/api/auth/register', json=payload)
+
+    assert first.status_code == 201
+    assert second.status_code == 409
 
 def test_login_user(client, seed_data):
     # Register first
@@ -56,3 +71,11 @@ def test_get_me(client, seed_data):
     
     assert response.status_code == 200
     assert response.json['email'] == 'me@example.com'
+
+
+def test_sales_user_cannot_list_users(client, sales_user):
+    response = client.get('/api/auth/users', headers={
+        'Authorization': f"Bearer {sales_user['token']}"
+    })
+
+    assert response.status_code == 403

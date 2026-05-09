@@ -45,6 +45,43 @@ def test_team_management(client, admin_token):
     assert resp.status_code == 201
     assert TeamMember.query.filter_by(team_id=team_id, employee_id=admin_emp.id).first() is not None
 
+
+def test_duplicate_team_member_rejected(client, admin_token):
+    resp = client.post('/api/hrms/teams', json={
+        'name': 'Duplicate Team',
+        'description': 'Sales Force'
+    }, headers={'Authorization': f'Bearer {admin_token}'})
+    assert resp.status_code == 201
+    team_id = resp.json['id']
+    admin_emp = Employee.query.first()
+
+    payload = {'employee_id': admin_emp.id}
+    first = client.post(f'/api/hrms/teams/{team_id}/members', json=payload,
+                        headers={'Authorization': f'Bearer {admin_token}'})
+    second = client.post(f'/api/hrms/teams/{team_id}/members', json=payload,
+                         headers={'Authorization': f'Bearer {admin_token}'})
+
+    assert first.status_code == 201
+    assert second.status_code == 400
+
+
+def test_sales_cannot_create_employee(client, sales_user):
+    resp = client.post('/api/auth/register', json={
+        'email': 'blocked_emp@hirehub.com',
+        'password': 'password123'
+    })
+    user_id = resp.json['user']['id']
+
+    resp = client.post('/api/hrms/employees', json={
+        'user_id': user_id,
+        'first_name': 'Blocked',
+        'last_name': 'Employee',
+        'date_of_joining': '2024-01-01',
+        'department': 'Sales'
+    }, headers={'Authorization': f"Bearer {sales_user['token']}"})
+
+    assert resp.status_code == 403
+
 def test_attendance_workflow(client, admin_token):
     # Need to be logged in as an employee to clock in
     # Login as admin user (who has an employee record via conftest)
@@ -101,3 +138,17 @@ def test_leave_approval(client, admin_token):
     # Check balance deduction
     balance = LeaveBalance.query.filter_by(employee_id=admin_emp.id, leave_type='Sick').first()
     assert balance.total_used == 3 # 3 days total
+
+
+def test_invalid_leave_dates_rejected(client, sales_user):
+    start = date.today() + timedelta(days=5)
+    end = start - timedelta(days=1)
+
+    resp = client.post('/api/hrms/leaves', json={
+        'leave_type': 'Sick',
+        'start_date': start.isoformat(),
+        'end_date': end.isoformat(),
+        'reason': 'Invalid dates'
+    }, headers={'Authorization': f"Bearer {sales_user['token']}"})
+
+    assert resp.status_code == 400

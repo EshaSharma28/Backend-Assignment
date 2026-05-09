@@ -39,33 +39,90 @@ def seed_data(app):
 
 @pytest.fixture
 def admin_token(client, app):
+    user, _employee = create_user_with_employee(
+        app=app,
+        email='admin@hirehub.com',
+        password='adminpassword',
+        role_name='Admin',
+        first_name='Admin',
+        is_sales_agent=True,
+    )
+
+    resp = client.post('/api/auth/login', json={
+        'email': user.email,
+        'password': 'adminpassword'
+    })
+    return resp.json['token']
+
+
+def create_user_with_employee(
+    app,
+    email,
+    password,
+    role_name,
+    first_name,
+    is_sales_agent=False,
+):
     with app.app_context():
         from app.auth.utils import hash_password
         from app.models.auth import Role, User
         from app.models.hrms import Employee
 
-        admin_role = Role.query.filter_by(name='Admin').first()
-        admin_user = User(
-            email='admin@hirehub.com',
-            password_hash=hash_password('adminpassword'),
-            role_id=admin_role.id,
+        role = Role.query.filter_by(name=role_name).first()
+        user = User(
+            email=email,
+            password_hash=hash_password(password),
+            role_id=role.id,
         )
-        db.session.add(admin_user)
+        db.session.add(user)
         db.session.flush()
         
-        admin_emp = Employee(
-            user_id=admin_user.id,
-            first_name="Admin",
+        employee = Employee(
+            user_id=user.id,
+            first_name=first_name,
             last_name="User",
             date_of_joining=date(2024, 1, 1),
-            department="Management",
-            is_sales_agent=True,
+            department=role_name,
+            is_sales_agent=is_sales_agent,
         )
-        db.session.add(admin_emp)
+        db.session.add(employee)
         db.session.commit()
+        db.session.refresh(user)
+        db.session.refresh(employee)
+        db.session.expunge(user)
+        db.session.expunge(employee)
+        return user, employee
 
+
+@pytest.fixture
+def sales_user(client, app):
+    user, employee = create_user_with_employee(
+        app=app,
+        email='sales@hirehub.com',
+        password='salespassword',
+        role_name='Sales',
+        first_name='Sales',
+        is_sales_agent=True,
+    )
     resp = client.post('/api/auth/login', json={
-        'email': 'admin@hirehub.com',
-        'password': 'adminpassword'
+        'email': user.email,
+        'password': 'salespassword'
     })
-    return resp.json['token']
+    return {'token': resp.json['token'], 'user': user, 'employee': employee}
+
+
+@pytest.fixture
+def second_sales_user(client, app):
+    user, employee = create_user_with_employee(
+        app=app,
+        email='sales2@hirehub.com',
+        password='salespassword',
+        role_name='Sales',
+        first_name='SecondSales',
+        is_sales_agent=True,
+    )
+    resp = client.post('/api/auth/login', json={
+        'email': user.email,
+        'password': 'salespassword'
+    })
+    return {'token': resp.json['token'], 'user': user, 'employee': employee}
