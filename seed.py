@@ -21,17 +21,20 @@ RBAC_MATRIX = {
         },
     },
     'HR': {
-        'description': 'Attendance, leave, and read-only performance access',
+        'description': 'Attendance, leave, and read-only performance/lead access',
         'permissions': {
             'attendance':  {'can_read': True, 'can_write': True, 'can_delete': False},
             'leave':       {'can_read': True, 'can_write': True, 'can_delete': False},
-            'performance': {'can_read': True, 'can_write': False, 'can_delete': False},
+            'performance': {'can_read': True, 'can_write': True, 'can_delete': False},
+            'leads':       {'can_read': True, 'can_write': False, 'can_delete': False},
         },
     },
     'Sales': {
-        'description': 'CRM lead management and own performance view',
+        'description': 'CRM lead management and self-service HRMS access',
         'permissions': {
             'leads':       {'can_read': True, 'can_write': True, 'can_delete': False},
+            'attendance':  {'can_read': True, 'can_write': True, 'can_delete': False},
+            'leave':       {'can_read': True, 'can_write': True, 'can_delete': False},
             'performance': {'can_read': True, 'can_write': False, 'can_delete': False},
         },
     },
@@ -51,7 +54,12 @@ def seed_rbac():
             existing = RolePermission.query.filter_by(
                 role_id=role.id, scope=scope
             ).first()
-            if not existing:
+            
+            if existing:
+                existing.can_read = perms['can_read']
+                existing.can_write = perms['can_write']
+                existing.can_delete = perms['can_delete']
+            else:
                 perm = RolePermission(
                     role_id=role.id,
                     scope=scope,

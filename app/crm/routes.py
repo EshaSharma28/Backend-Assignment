@@ -3,8 +3,10 @@ from flask import request, jsonify, g
 from app.crm import crm_bp
 from app.extensions import db
 from app.models.crm import Lead, Interaction, LeadStatusHistory
+from app.models.hrms import Employee
 from app.crm.schemas import LeadSchema, InteractionSchema, LeadStatusHistorySchema
 from app.auth.decorators import require_auth, require_permission
+from app.utils.background import run_async, send_assignment_notification
 
 lead_schema = LeadSchema()
 leads_schema = LeadSchema(many=True)
@@ -50,6 +52,12 @@ def create_lead():
     
     db.session.add(new_lead)
     db.session.commit()
+
+    # Async Notification if agent is assigned
+    if new_lead.assigned_agent_id:
+        agent = db.session.get(Employee, new_lead.assigned_agent_id)
+        if agent and agent.user:
+            run_async(send_assignment_notification, agent.user.email, new_lead.company_name)
     
     return jsonify(lead_schema.dump(new_lead)), 201
 
@@ -67,12 +75,21 @@ def update_lead(id):
     if errors:
         return jsonify(errors), 400
     
+    was_unassigned = lead.assigned_agent_id is None
+    
     # Update only the fields provided in the body
     for key, value in data.items():
         if hasattr(lead, key):
             setattr(lead, key, value)
     
     db.session.commit()
+
+    # Async Notification if newly assigned
+    if was_unassigned and lead.assigned_agent_id:
+        agent = db.session.get(Employee, lead.assigned_agent_id)
+        if agent and agent.user:
+            run_async(send_assignment_notification, agent.user.email, lead.company_name)
+    
     return jsonify(lead_schema.dump(lead)), 200
 
 @crm_bp.route('/leads/<int:id>/interactions', methods=['GET'])

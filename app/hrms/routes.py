@@ -266,6 +266,10 @@ def review_leave(id):
     if leave_req.status != 'Pending':
         return jsonify({'message': 'Leave request is already processed'}), 400
     
+    # Extra security: Only Admin or HR can review leaves
+    if g.current_user.role.name not in ['Admin', 'HR']:
+        return jsonify({'message': 'Forbidden: Only HR or Admin can review leaves'}), 403
+    
     data = request.get_json()
     new_status = data.get('status') # 'Approved' or 'Rejected'
     if new_status not in ['Approved', 'Rejected']:
